@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Clean, responsive offline-ready household grocery list with auto-scaling A4 checklist printing.">
+  <meta name="theme-color" content="#0f172a">
+  <title>Smart Grocery Checklist & Inventory</title>
+
+  <!-- PWA Manifest & App Icons -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <!-- Application Styles & Dedicated Print Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/print.css">
+</head>
+<body>
+
+  <!-- Offline Status Banner for Supermarket Offline Use -->
+  <div id="offline-banner" class="offline-banner no-print">
+    <span>⚠️ Offline Mode Active — All edits and checklist updates are saved locally and will sync once reconnected.</span>
+  </div>
+
+  <!-- Top Navigation & Header -->
+  <header class="top-navbar no-print">
+    <div class="nav-container">
+      <div class="brand-section">
+        <div class="brand-icon">🛒</div>
+        <div>
+          <h1 class="brand-title">Smart Grocery</h1>
+        </div>
+        <span class="header-status-badge" id="sync-status">
+          <span class="header-status-dot"></span>
+          <span id="sync-status-text">Cloud Synced</span>
+        </span>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn btn-secondary" id="btn-add-category">
+          <span>+ Add Category</span>
+        </button>
+        <button class="btn btn-primary" id="btn-add-item">
+          <span>+ Add Item</span>
+        </button>
+        <button class="btn btn-print" id="btn-print-checklist" title="Print auto-scaled A4 checklist (Max 2 Pages)">
+          <span>🖨️ Print A4 Checklist</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Application Content -->
+  <main class="app-container no-print">
+    <!-- Search & Selection Control Toolbar -->
+    <section class="search-toolbar">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input 
+          type="search" 
+          id="search-input" 
+          class="search-input" 
+          placeholder="Quick search items or categories..." 
+          autocomplete="off"
+        >
+        <button id="clear-search" class="clear-search-btn" title="Clear search">✕</button>
+      </div>
+
+      <div class="selection-actions-bar">
+        <span class="selected-counter" id="selected-counter">0 items selected</span>
+        <button class="btn btn-secondary btn-sm" id="btn-clear-selection" title="Uncheck all items after shopping">
+          <span>Clear All</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Grouped Grocery Categories & Tables Container -->
+    <section id="categories-container" class="categories-container">
+      <!-- Dynamically generated via app.js -->
+    </section>
+
+    <!-- Initial Welcome / Empty State Prompt -->
+    <div id="empty-state" class="category-card" style="display: none; padding: 40px 20px; text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 12px;">🧺</div>
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 8px;">No Categories Found</h2>
+      <p style="color: var(--text-muted); max-width: 450px; margin: 0 auto 20px auto;">
+        Get started by creating your first category (e.g. "Produce & Vegetables", "Dairy & Refrigerated", "Pantry Essentials").
+      </p>
+      <button class="btn btn-primary" id="btn-empty-add-category">+ Create First Category</button>
+    </div>
+  </main>
+
+  <!-- Discreet Total Cost Widget (Fixed Bottom-Right for Supermarket Privacy) -->
+  <div id="discreet-total" class="discreet-total no-print" title="Total estimated cost of selected items">
+    <div style="display: flex; flex-direction: column;">
+      <span class="discreet-total-label">Selected Total</span>
+      <span class="discreet-total-amount" id="total-amount">₹0.00</span>
+    </div>
+    <button class="discreet-toggle-btn" id="toggle-privacy-btn" title="Toggle visibility of total price">
+      <span id="privacy-icon">👁️</span>
+    </button>
+  </div>
+
+  <!-- Undo Notification Toast Container -->
+  <div class="toast-container no-print" id="toast-container"></div>
+
+  <!-- MODAL 1: Add / Edit Item Modal -->
+  <div class="modal-overlay" id="item-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title" id="item-modal-title">Add Grocery Item</h2>
+        <button class="modal-close-btn" id="btn-close-item-modal">&times;</button>
+      </div>
+      <form id="item-form">
+        <div class="modal-body">
+          <input type="hidden" id="item-id">
+
+          <div class="form-group">
+            <label class="form-label" for="item-name">Item Name *</label>
+            <input type="text" id="item-name" class="form-input" placeholder="e.g. Whole Wheat Bread" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="item-category">Category *</label>
+            <select id="item-category" class="form-select" required>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="item-quantity">Quantity Amount *</label>
+              <input type="number" id="item-quantity" class="form-input" min="0.01" step="any" value="1" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="item-unit">Quantity Unit *</label>
+              <select id="item-unit" class="form-select" required>
+                <option value="Grams">Grams</option>
+                <option value="Kgs">Kgs</option>
+                <option value="Litres">Litres</option>
+                <option value="ml">ml</option>
+                <option value="Packets">Packets</option>
+                <option value="Bottles">Bottles</option>
+                <option value="Boxes">Boxes</option>
+                <option value="Nos" selected>Nos</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="item-old-price">Old Price</label>
+              <input type="number" id="item-old-price" class="form-input" min="0" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="item-new-price">New Price</label>
+              <input type="number" id="item-new-price" class="form-input" min="0" step="0.01" placeholder="0.00">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-item">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-item">Save Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Add / Edit Category Modal -->
+  <div class="modal-overlay" id="category-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title" id="category-modal-title">Add Category</h2>
+        <button class="modal-close-btn" id="btn-close-category-modal">&times;</button>
+      </div>
+      <form id="category-form">
+        <div class="modal-body">
+          <input type="hidden" id="category-id">
+          <div class="form-group">
+            <label class="form-label" for="category-name">Category Name *</label>
+            <input type="text" id="category-name" class="form-input" placeholder="e.g. Dairy & Eggs" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-category">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-category">Save Category</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Strict Confirmation Modal for Deletions -->
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title" id="confirm-modal-title">Confirm Deletion</h2>
+        <button class="modal-close-btn" id="btn-close-confirm-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="confirm-warning-icon">⚠️</div>
+        <p class="confirm-text" id="confirm-modal-message">
+          Are you sure you want to delete this? This action cannot be undone.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="btn-confirm-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger-solid" id="btn-confirm-action">Yes, Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dedicated Print Container (Auto-Scaled & Printed Exclusively) -->
+  <div id="print-view"></div>
+
+  <!-- Application Bootstrap -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
